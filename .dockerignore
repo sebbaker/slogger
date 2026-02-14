@@ -7,3 +7,4 @@ docker-compose*.yml
 README.md
 tests
 npm-debug.log
+config.json

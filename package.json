@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "ensure-config": "tsx scripts/ensure-config.ts",
-    "send:test-logs": "tsx scripts/send-test-logs.ts",
+    "generate-api-key": "tsx scripts/generate-api-key.ts",
+    "send-test-logs": "tsx scripts/send-test-logs.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "test:e2e": "playwright test tests/e2e"
