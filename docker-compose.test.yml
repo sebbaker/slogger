@@ -1,0 +1,11 @@
+services:
+  db:
+    volumes:
+      - slogger_test_pgdata:/var/lib/postgresql/data
+
+  app:
+    volumes:
+      - ${SLOGGER_TEST_CONFIG_PATH:?}:/app/config.json:ro
+
+volumes:
+  slogger_test_pgdata:

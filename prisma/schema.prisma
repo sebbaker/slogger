@@ -1,0 +1,21 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Log {
+  id        String   @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  source    String
+  props     Json
+  time      DateTime
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@id([time, id])
+  @@index([source])
+  @@index([time])
+  @@map("logs")
+}

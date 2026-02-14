@@ -1,0 +1,30 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: slogger
+      POSTGRES_PASSWORD: slogger
+      POSTGRES_DB: slogger
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U slogger"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://slogger:slogger@db:5432/slogger
+      CONFIG_PATH: /app/config.json
+    volumes:
+      - ./config.json:/app/config.json:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
