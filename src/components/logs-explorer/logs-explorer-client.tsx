@@ -37,6 +37,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
@@ -85,6 +86,9 @@ const initialFilters: Filters = {
 type StoredSettings = {
   columnsConfig?: string;
   selectedSources?: string[];
+  streamingEnabled?: boolean;
+  formFilters?: Filters;
+  activeFilters?: Filters;
 };
 
 type DatePreset = {
@@ -118,6 +122,25 @@ function parseLocalDateTime(value: string): Date | undefined {
   }
 
   return date;
+}
+
+function normalizeFilters(value: Partial<Filters> | undefined): Filters {
+  const limit = Number(value?.limit);
+  const offset = Number(value?.offset);
+
+  return {
+    search: typeof value?.search === "string" ? value.search : "",
+    from:
+      typeof value?.from === "string" && parseLocalDateTime(value.from)
+        ? value.from
+        : "",
+    to:
+      typeof value?.to === "string" && parseLocalDateTime(value.to)
+        ? value.to
+        : "",
+    limit: Math.min(1000, Math.max(1, Number.isFinite(limit) ? limit : 100)),
+    offset: Math.max(0, Number.isFinite(offset) ? offset : 0),
+  };
 }
 
 function formatRangeButtonLabel(from: string, to: string): string {
@@ -288,8 +311,8 @@ export function LogsExplorerClient() {
   const [logs, setLogs] = useState<LogItem[]>([]);
   const [availableSources, setAvailableSources] = useState<string[]>([]);
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
-  const [draftFilters, setDraftFilters] = useState<Filters>(initialFilters);
-  const [appliedFilters, setAppliedFilters] = useState<Filters>(initialFilters);
+  const [formFilters, setFormFilters] = useState<Filters>(initialFilters);
+  const [activeFilters, setActiveFilters] = useState<Filters>(initialFilters);
   const [activeLog, setActiveLog] = useState<LogItem | null>(null);
   const [error, setError] = useState<string>("");
 
@@ -303,6 +326,10 @@ export function LogsExplorerClient() {
   const [dateRangeOpen, setDateRangeOpen] = useState(false);
   const [draftDateFrom, setDraftDateFrom] = useState("");
   const [draftDateTo, setDraftDateTo] = useState("");
+  const [streamingEnabled, setStreamingEnabled] = useState(false);
+  const [debouncedLiveSearch, setDebouncedLiveSearch] = useState(
+    initialFilters.search,
+  );
 
   const displayColumns = useMemo(
     () => parseColumnsConfig(columnsConfig),
@@ -323,6 +350,22 @@ export function LogsExplorerClient() {
     };
   }, [draftDateFrom, draftDateTo]);
 
+  const effectiveFilters = streamingEnabled ? formFilters : activeFilters;
+  const querySearch = streamingEnabled
+    ? debouncedLiveSearch
+    : effectiveFilters.search;
+
+  useEffect(() => {
+    const delayMs = streamingEnabled ? 350 : 0;
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedLiveSearch(formFilters.search);
+    }, delayMs);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [formFilters.search, streamingEnabled]);
+
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
 
@@ -330,23 +373,23 @@ export function LogsExplorerClient() {
       params.set("sources", selectedSources.join(","));
     }
 
-    if (appliedFilters.search) {
-      params.set("search", appliedFilters.search);
+    if (querySearch) {
+      params.set("search", querySearch);
     }
 
-    if (appliedFilters.from) {
-      params.set("from", toIsoValue(appliedFilters.from));
+    if (effectiveFilters.from) {
+      params.set("from", toIsoValue(effectiveFilters.from));
     }
 
-    if (appliedFilters.to) {
-      params.set("to", toIsoValue(appliedFilters.to));
+    if (effectiveFilters.to) {
+      params.set("to", toIsoValue(effectiveFilters.to));
     }
 
-    params.set("limit", String(appliedFilters.limit));
-    params.set("offset", String(appliedFilters.offset));
+    params.set("limit", String(effectiveFilters.limit));
+    params.set("offset", String(effectiveFilters.offset));
 
     return params.toString();
-  }, [appliedFilters, selectedSources]);
+  }, [effectiveFilters, querySearch, selectedSources]);
 
   useEffect(() => {
     const storedApiKey = localStorage.getItem(API_KEY_STORAGE_KEY) ?? "";
@@ -364,10 +407,41 @@ export function LogsExplorerClient() {
       const nextColumnsConfig = parsed.columnsConfig ?? DEFAULT_COLUMNS_CONFIG;
       setColumnsConfig(nextColumnsConfig);
       setDraftColumnsConfig(nextColumnsConfig);
+      setStreamingEnabled(parsed.streamingEnabled === true);
+      const nextFormFilters = normalizeFilters(parsed.formFilters);
+      const nextActiveFilters = normalizeFilters(
+        parsed.activeFilters ?? parsed.formFilters,
+      );
+      setFormFilters(nextFormFilters);
+      setActiveFilters(nextActiveFilters);
     } catch {
       // Ignore malformed persisted settings and continue with defaults.
     }
   }, []);
+
+  useEffect(() => {
+    if (!apiKey) {
+      return;
+    }
+
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        columnsConfig,
+        selectedSources,
+        streamingEnabled,
+        formFilters,
+        activeFilters,
+      } satisfies StoredSettings),
+    );
+  }, [
+    activeFilters,
+    apiKey,
+    columnsConfig,
+    formFilters,
+    selectedSources,
+    streamingEnabled,
+  ]);
 
   const loadLogs = useCallback(async () => {
     if (!apiKey) {
@@ -438,6 +512,20 @@ export function LogsExplorerClient() {
     void loadSources();
   }, [loadSources]);
 
+  useEffect(() => {
+    if (!streamingEnabled) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      void loadLogs();
+    }, 2_000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [loadLogs, streamingEnabled]);
+
   if (!apiKey) {
     return (
       <AuthGate
@@ -462,22 +550,26 @@ export function LogsExplorerClient() {
   };
 
   const openDateRangeDialog = () => {
-    setDraftDateFrom(draftFilters.from);
-    setDraftDateTo(draftFilters.to);
+    setDraftDateFrom(formFilters.from);
+    setDraftDateTo(formFilters.to);
     setDateRangeOpen(true);
   };
 
-  const applyDraftFilters = () => {
-    setAppliedFilters(draftFilters);
+  const applyFormFilters = () => {
+    setActiveFilters(formFilters);
   };
 
   const handleFilterEnterKey = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (streamingEnabled) {
+      return;
+    }
+
     if (event.key !== "Enter") {
       return;
     }
 
     event.preventDefault();
-    applyDraftFilters();
+    applyFormFilters();
   };
 
   return (
@@ -494,10 +586,10 @@ export function LogsExplorerClient() {
               <Input
                 id="search"
                 placeholder="Full-text search"
-                value={draftFilters.search}
+                value={formFilters.search}
                 onKeyDown={handleFilterEnterKey}
                 onChange={(event) =>
-                  setDraftFilters((prev) => ({
+                  setFormFilters((prev) => ({
                     ...prev,
                     search: event.target.value,
                   }))
@@ -515,7 +607,7 @@ export function LogsExplorerClient() {
               >
                 <CalendarIcon className="h-4 w-4" />
                 <span className="truncate">
-                  {formatRangeButtonLabel(draftFilters.from, draftFilters.to)}
+                  {formatRangeButtonLabel(formFilters.from, formFilters.to)}
                 </span>
               </Button>
             </div>
@@ -527,10 +619,10 @@ export function LogsExplorerClient() {
                 max={1000}
                 min={1}
                 type="number"
-                value={draftFilters.limit}
+                value={formFilters.limit}
                 onKeyDown={handleFilterEnterKey}
                 onChange={(event) =>
-                  setDraftFilters((prev) => ({
+                  setFormFilters((prev) => ({
                     ...prev,
                     limit: Math.min(
                       1000,
@@ -547,10 +639,10 @@ export function LogsExplorerClient() {
                 id="offset"
                 min={0}
                 type="number"
-                value={draftFilters.offset}
+                value={formFilters.offset}
                 onKeyDown={handleFilterEnterKey}
                 onChange={(event) =>
-                  setDraftFilters((prev) => ({
+                  setFormFilters((prev) => ({
                     ...prev,
                     offset: Math.max(0, Number(event.target.value) || 0),
                   }))
@@ -558,13 +650,30 @@ export function LogsExplorerClient() {
               />
             </div>
 
-            <Button
-              className="w-full"
-              onClick={applyDraftFilters}
-              type="button"
-            >
-              Search
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                className="flex-1"
+                disabled={streamingEnabled}
+                onClick={applyFormFilters}
+                type="button"
+              >
+                Search
+              </Button>
+              <div className="flex items-center gap-2 rounded-md border px-2 py-1">
+                <Label className="text-xs" htmlFor="streaming-toggle">
+                  Live
+                </Label>
+                <Switch
+                  checked={streamingEnabled}
+                  id="streaming-toggle"
+                  onCheckedChange={(checked) => {
+                    const isEnabled = checked === true;
+                    setStreamingEnabled(isEnabled);
+                    setActiveFilters(formFilters);
+                  }}
+                />
+              </div>
+            </div>
 
             <Dialog open={settingsOpen} onOpenChange={handleSettingsOpenChange}>
               <DialogTrigger asChild>
@@ -688,10 +797,13 @@ export function LogsExplorerClient() {
                         JSON.stringify({
                           columnsConfig: draftColumnsConfig,
                           selectedSources: draftSources,
+                          streamingEnabled,
+                          formFilters,
+                          activeFilters,
                         } satisfies StoredSettings),
                       );
-                      setAppliedFilters((prev) => ({ ...prev, offset: 0 }));
-                      setDraftFilters((prev) => ({ ...prev, offset: 0 }));
+                      setActiveFilters((prev) => ({ ...prev, offset: 0 }));
+                      setFormFilters((prev) => ({ ...prev, offset: 0 }));
                       setSettingsOpen(false);
                     }}
                     type="button"
@@ -822,7 +934,7 @@ export function LogsExplorerClient() {
             </DialogClose>
             <Button
               onClick={() => {
-                setDraftFilters((prev) => ({
+                setFormFilters((prev) => ({
                   ...prev,
                   from: draftDateFrom,
                   to: draftDateTo,
