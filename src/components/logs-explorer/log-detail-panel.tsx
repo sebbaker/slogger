@@ -19,19 +19,16 @@ type LogDetailPanelProps = {
 export function LogDetailPanel({ log, onClose }: LogDetailPanelProps) {
   return (
     <Dialog open={Boolean(log)} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="h-[85vh] max-w-4xl">
+      <DialogContent className="flex h-[85vh] max-w-4xl flex-col gap-0 overflow-hidden p-0">
         {log ? (
           <>
-            <DialogHeader>
+            <DialogHeader className="border-b px-6 pt-6 pb-4">
               <DialogTitle>Log Detail</DialogTitle>
               <DialogDescription>
                 {log.source} at {format(new Date(log.time), "yyyy-MM-dd HH:mm:ss")}
               </DialogDescription>
             </DialogHeader>
-            <div className="text-muted-foreground mb-3 space-y-1 text-sm">
-              <p>Created: {format(new Date(log.created_at), "yyyy-MM-dd HH:mm:ss")}</p>
-            </div>
-            <ScrollArea className="bg-muted/30 h-[calc(85vh-11rem)] rounded-md border p-3">
+            <ScrollArea className="flex-1 px-6 py-4">
               <pre className="text-xs">{JSON.stringify(log.props, null, 2)}</pre>
             </ScrollArea>
           </>

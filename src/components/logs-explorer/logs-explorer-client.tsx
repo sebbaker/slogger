@@ -1,23 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  endOfDay,
-  format,
-  startOfDay,
-  startOfMonth,
-  startOfWeek,
-  subDays,
-  subHours,
-  subMinutes,
-} from "date-fns";
-import { CalendarIcon, Settings2 } from "lucide-react";
-import type { DateRange } from "react-day-picker";
 import { AuthGate } from "@/components/logs-explorer/auth-gate";
 import { LogDetailPanel } from "@/components/logs-explorer/log-detail-panel";
 import {
-  type DisplayColumn,
   LogsTable,
+  type DisplayColumn,
 } from "@/components/logs-explorer/logs-table";
 import type {
   LogItem,
@@ -27,13 +14,6 @@ import type {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -52,12 +32,32 @@ import {
   Sidebar,
   SidebarContent,
   SidebarGroup,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarInset,
   SidebarProvider,
+  SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Textarea } from "@/components/ui/textarea";
+import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  endOfDay,
+  format,
+  startOfDay,
+  startOfMonth,
+  startOfWeek,
+  subDays,
+  subHours,
+  subMinutes,
+} from "date-fns";
+import { CalendarIcon, Settings2 } from "lucide-react";
+import {
+  type KeyboardEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import type { DateRange } from "react-day-picker";
 
 const API_KEY_STORAGE_KEY = "slogger_api_key";
 const SETTINGS_STORAGE_KEY = "slogger_explorer_settings";
@@ -283,46 +283,20 @@ function parseColumnsConfig(config: string): DisplayColumn[] {
 }
 
 export function LogsExplorerClient() {
-  const [storedSettings] = useState<StoredSettings>(() => {
-    if (typeof window === "undefined") {
-      return {};
-    }
-
-    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
-    if (!raw) {
-      return {};
-    }
-
-    try {
-      return JSON.parse(raw) as StoredSettings;
-    } catch {
-      return {};
-    }
-  });
-
-  const [apiKey, setApiKey] = useState<string>(() => {
-    if (typeof window === "undefined") {
-      return "";
-    }
-
-    return localStorage.getItem(API_KEY_STORAGE_KEY) ?? "";
-  });
+  const isMobile = useIsMobile();
+  const [apiKey, setApiKey] = useState<string>("");
   const [logs, setLogs] = useState<LogItem[]>([]);
   const [availableSources, setAvailableSources] = useState<string[]>([]);
-  const [selectedSources, setSelectedSources] = useState<string[]>(
-    () => storedSettings.selectedSources ?? [],
-  );
+  const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [draftFilters, setDraftFilters] = useState<Filters>(initialFilters);
   const [appliedFilters, setAppliedFilters] = useState<Filters>(initialFilters);
   const [activeLog, setActiveLog] = useState<LogItem | null>(null);
   const [error, setError] = useState<string>("");
 
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [columnsConfig, setColumnsConfig] = useState(
-    () => storedSettings.columnsConfig ?? DEFAULT_COLUMNS_CONFIG,
-  );
+  const [columnsConfig, setColumnsConfig] = useState(DEFAULT_COLUMNS_CONFIG);
   const [draftColumnsConfig, setDraftColumnsConfig] = useState(
-    () => storedSettings.columnsConfig ?? DEFAULT_COLUMNS_CONFIG,
+    DEFAULT_COLUMNS_CONFIG,
   );
   const [draftSources, setDraftSources] = useState<string[]>([]);
 
@@ -373,6 +347,27 @@ export function LogsExplorerClient() {
 
     return params.toString();
   }, [appliedFilters, selectedSources]);
+
+  useEffect(() => {
+    const storedApiKey = localStorage.getItem(API_KEY_STORAGE_KEY) ?? "";
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setApiKey(storedApiKey);
+
+    const rawSettings = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (!rawSettings) {
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(rawSettings) as StoredSettings;
+      setSelectedSources(parsed.selectedSources ?? []);
+      const nextColumnsConfig = parsed.columnsConfig ?? DEFAULT_COLUMNS_CONFIG;
+      setColumnsConfig(nextColumnsConfig);
+      setDraftColumnsConfig(nextColumnsConfig);
+    } catch {
+      // Ignore malformed persisted settings and continue with defaults.
+    }
+  }, []);
 
   const loadLogs = useCallback(async () => {
     if (!apiKey) {
@@ -472,11 +467,24 @@ export function LogsExplorerClient() {
     setDateRangeOpen(true);
   };
 
+  const applyDraftFilters = () => {
+    setAppliedFilters(draftFilters);
+  };
+
+  const handleFilterEnterKey = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter") {
+      return;
+    }
+
+    event.preventDefault();
+    applyDraftFilters();
+  };
+
   return (
-    <SidebarProvider>
+    <SidebarProvider className="overscroll-none overflow-hidden">
       <Sidebar collapsible="offcanvas" variant="inset">
         <SidebarHeader className="p-4 pb-2">
-          <h1 className="text-lg font-semibold">Slogger Explorer</h1>
+          <h1 className="text-lg font-semibold">Slogger</h1>
         </SidebarHeader>
 
         <SidebarContent>
@@ -487,6 +495,7 @@ export function LogsExplorerClient() {
                 id="search"
                 placeholder="Full-text search"
                 value={draftFilters.search}
+                onKeyDown={handleFilterEnterKey}
                 onChange={(event) =>
                   setDraftFilters((prev) => ({
                     ...prev,
@@ -519,6 +528,7 @@ export function LogsExplorerClient() {
                 min={1}
                 type="number"
                 value={draftFilters.limit}
+                onKeyDown={handleFilterEnterKey}
                 onChange={(event) =>
                   setDraftFilters((prev) => ({
                     ...prev,
@@ -538,6 +548,7 @@ export function LogsExplorerClient() {
                 min={0}
                 type="number"
                 value={draftFilters.offset}
+                onKeyDown={handleFilterEnterKey}
                 onChange={(event) =>
                   setDraftFilters((prev) => ({
                     ...prev,
@@ -549,9 +560,7 @@ export function LogsExplorerClient() {
 
             <Button
               className="w-full"
-              onClick={() => {
-                setAppliedFilters(draftFilters);
-              }}
+              onClick={applyDraftFilters}
               type="button"
             >
               Search
@@ -573,14 +582,14 @@ export function LogsExplorerClient() {
                 </DialogHeader>
 
                 <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
-                  <Card className="gap-0 py-0">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base">Sources</CardTitle>
-                      <CardDescription>
+                  <section className="space-y-3 py-1">
+                    <div>
+                      <h3 className="text-base font-semibold">Sources</h3>
+                      <p className="text-muted-foreground text-sm">
                         Select one or more sources to query.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-3 pb-4">
+                      </p>
+                    </div>
+                    <div className="space-y-3">
                       <div className="flex items-center gap-2 rounded-md border p-3">
                         <Checkbox
                           checked={allSourcesSelected}
@@ -628,18 +637,18 @@ export function LogsExplorerClient() {
                           </div>
                         </ScrollArea>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </section>
 
-                  <Card className="gap-0 py-0">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base">Columns</CardTitle>
-                      <CardDescription>
+                  <section className="space-y-3 border-t pt-4 lg:border-l lg:border-t-0 lg:pt-1 lg:pl-4">
+                    <div>
+                      <h3 className="text-base font-semibold">Columns</h3>
+                      <p className="text-muted-foreground text-sm">
                         Format: Label: path.one, path.two. Time, Source, and
                         Full JSON are always shown.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="pb-4">
+                      </p>
+                    </div>
+                    <div>
                       <Textarea
                         id="columns-config"
                         rows={16}
@@ -648,8 +657,8 @@ export function LogsExplorerClient() {
                           setDraftColumnsConfig(event.target.value)
                         }
                       />
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </section>
                 </div>
 
                 <DialogFooter>
@@ -693,42 +702,40 @@ export function LogsExplorerClient() {
               </DialogContent>
             </Dialog>
 
-            {/* {error ? ( */}
-            <Alert variant="destructive">
-              <AlertDescription>{error}asdfafsd</AlertDescription>
-            </Alert>
-            {/*  ) : null} */}
+            {error ? (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            ) : null}
           </SidebarGroup>
         </SidebarContent>
       </Sidebar>
 
-      <SidebarInset
-        className="max-h-[calc(100svh-1rem)] overflow-hidden overscroll-contain"
-        // className="min-h-svh p-4 md:max-h-[calc(100svh-1rem)]"
-      >
-        {/* <div className="flex min-h-0 flex-1 flex-col gap-3">
-          <div className="min-h-0 flex-1"> */}
-        <LogsTable
-          columns={displayColumns}
-          logs={logs}
-          onSelect={(log) => setActiveLog(log)}
-        />
-        {/* </div>
-        </div> */}
+      <SidebarInset className="relative overflow-hidden">
+        <div className="border-b px-2 py-2 md:hidden">
+          <div className="flex items-center gap-2">
+            <SidebarTrigger />
+            <span className="text-sm font-medium">Filters</span>
+          </div>
+        </div>
+
+        <div className="absolute inset-0 top-[49px] md:top-0">
+          <LogsTable
+            columns={displayColumns}
+            logs={logs}
+            onSelect={(log) => setActiveLog(log)}
+          />
+        </div>
       </SidebarInset>
 
       <Dialog open={dateRangeOpen} onOpenChange={setDateRangeOpen}>
         <DialogContent className="sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>Select date range</DialogTitle>
-            <DialogDescription>
-              Pick a preset or choose a custom date range.
-            </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
             <div className="space-y-2">
-              <p className="text-sm font-medium">Presets</p>
               <ScrollArea className="h-80 rounded-md border">
                 <div className="space-y-1 p-2">
                   {DATE_PRESETS.map((preset) => (
@@ -755,7 +762,7 @@ export function LogsExplorerClient() {
                 <Calendar
                   className="mx-auto"
                   mode="range"
-                  numberOfMonths={2}
+                  numberOfMonths={isMobile ? 1 : 2}
                   selected={calendarRange}
                   onSelect={(range) => {
                     if (!range?.from) {

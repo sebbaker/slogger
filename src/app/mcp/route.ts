@@ -1,8 +1,13 @@
+import { verifyApiKey } from "@/lib/auth";
+import {
+  parseLimit,
+  parseOffset,
+  queryLogs,
+  querySources,
+} from "@/lib/log-query";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { z } from "zod";
-import { verifyApiKey } from "@/lib/auth";
-import { parseLimit, parseOffset, queryLogs, querySources } from "@/lib/log-query";
 
 function createServer() {
   const server = new McpServer({
@@ -33,11 +38,11 @@ function createServer() {
     "search_logs",
     {
       title: "Search Logs",
-      description: "Search logs by source, full-text, JSONPath, time range, and pagination.",
+      description:
+        "Search logs by source, full-text, JSONPath, time range, and pagination.",
       inputSchema: {
         sources: z.array(z.string()).optional(),
         search: z.string().optional(),
-        jsonPath: z.string().optional(),
         from: z.string().optional(),
         to: z.string().optional(),
         limit: z.number().int().positive().max(1000).optional(),
@@ -48,7 +53,6 @@ function createServer() {
       const { logs, total } = await queryLogs({
         sources: args.sources,
         search: args.search,
-        jsonPath: args.jsonPath,
         from: args.from,
         to: args.to,
         limit: parseLimit(args.limit),
@@ -81,18 +85,58 @@ async function handleMcpRequest(request: Request) {
   }
 
   const transport = new WebStandardStreamableHTTPServerTransport({
+    enableJsonResponse: true,
     sessionIdGenerator: undefined,
   });
 
   const server = createServer();
-  await server.connect(transport);
-
-  try {
-    return await transport.handleRequest(request);
-  } finally {
+  transport.onclose = async () => {
     await server.close();
     await transport.close();
+  };
+  await server.connect(transport);
+
+  const normalizedRequest = await normalizeAcceptHeaders(request);
+  return transport.handleRequest(normalizedRequest);
+}
+
+async function normalizeAcceptHeaders(request: Request): Promise<Request> {
+  if (request.method !== "GET" && request.method !== "POST") {
+    return request;
   }
+
+  const headers = new Headers(request.headers);
+  const accept = headers.get("accept") ?? "";
+
+  if (request.method === "GET") {
+    if (!accept.includes("text/event-stream")) {
+      headers.set("accept", accept ? `${accept}, text/event-stream` : "text/event-stream");
+      return new Request(request.url, { method: "GET", headers });
+    }
+    return request;
+  }
+
+  const needsJson = !accept.includes("application/json");
+  const needsSse = !accept.includes("text/event-stream");
+  if (!needsJson && !needsSse) {
+    return request;
+  }
+
+  const nextAccept = [
+    accept,
+    needsJson ? "application/json" : "",
+    needsSse ? "text/event-stream" : "",
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  headers.set("accept", nextAccept);
+  const body = await request.text();
+  return new Request(request.url, {
+    body,
+    headers,
+    method: "POST",
+  });
 }
 
 export async function GET(request: Request) {

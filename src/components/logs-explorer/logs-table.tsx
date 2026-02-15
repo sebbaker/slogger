@@ -2,7 +2,6 @@
 
 import { format } from "date-fns";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -63,54 +62,68 @@ function getColumnValue(log: LogItem, paths: string[]): string {
 
 export function LogsTable({ logs, columns, onSelect }: LogsTableProps) {
   return (
-    // <div className="bg-card h-full min-h-0 overflow-auto rounded-lg border">
-    <Table>
-      <TableHeader className="bg-card sticky top-0 z-10 text-xs uppercase tracking-wide">
-        <TableRow>
-          <TableHead className="w-44">Time</TableHead>
-          <TableHead className="w-40">Source</TableHead>
-          {columns.map((column) => (
-            <TableHead key={column.label}>{column.label}</TableHead>
-          ))}
-          <TableHead className="min-w-96">Full JSON</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {logs.map((log, index) => (
-          <TableRow
-            key={`${log.id}-${index}`}
-            className="cursor-pointer"
-            onClick={() => onSelect(log)}
-          >
-            <TableCell className="text-muted-foreground whitespace-nowrap">
-              {format(new Date(log.time), "yyyy-MM-dd HH:mm:ss")}
-            </TableCell>
-            <TableCell className="whitespace-nowrap">{log.source}</TableCell>
-            {columns.map((column) => (
-              <TableCell
-                key={`${log.id}-${column.label}`}
-                className="text-muted-foreground max-w-80 truncate"
-              >
-                {getColumnValue(log, column.paths)}
-              </TableCell>
-            ))}
-            <TableCell className="text-muted-foreground max-w-xl truncate font-mono text-xs">
-              {JSON.stringify(log.props)}
-            </TableCell>
-          </TableRow>
-        ))}
-        {logs.length === 0 ? (
+    <div className="absolute inset-0 overflow-auto overscroll-none">
+      <table className="w-full border-separate border-spacing-0 text-sm [&_th]:border-b [&_th]:border-border  [&_th+th]:border-border [&_td]:border-b [&_td]:border-border [&_td+td]:border-border">
+        <TableHeader className="text-xs uppercase tracking-wide">
           <TableRow>
-            <TableCell
-              className="text-muted-foreground py-6 text-center"
-              colSpan={columns.length + 3}
-            >
-              No logs found.
-            </TableCell>
+            <TableHead className="sticky top-0 z-20 bg-card w-44">
+              Time
+            </TableHead>
+            <TableHead className="sticky top-0 z-20 bg-card w-40">
+              Source
+            </TableHead>
+            {columns.map((column) => (
+              <TableHead
+                key={column.label}
+                className="sticky top-0 z-20 bg-card"
+              >
+                {column.label}
+              </TableHead>
+            ))}
+            <TableHead className="sticky top-0 z-20 bg-card min-w-96">
+              Full JSON
+            </TableHead>
           </TableRow>
-        ) : null}
-      </TableBody>
-    </Table>
-    // </div>
+        </TableHeader>
+
+        <TableBody>
+          {logs.map((log, index) => (
+            <TableRow
+              key={`${log.id}-${index}`}
+              className="cursor-pointer"
+              onClick={() => onSelect(log)}
+            >
+              <TableCell className="text-muted-foreground whitespace-nowrap">
+                {format(new Date(log.time), "yyyy-MM-dd HH:mm:ss")}
+              </TableCell>
+
+              <TableCell className="whitespace-nowrap">{log.source}</TableCell>
+              {columns.map((column) => (
+                <TableCell
+                  key={`${log.id}-${column.label}`}
+                  className="text-muted-foreground max-w-80 truncate"
+                >
+                  {getColumnValue(log, column.paths)}
+                </TableCell>
+              ))}
+
+              <TableCell className="text-muted-foreground max-w-xl truncate font-mono text-xs">
+                {JSON.stringify(log.props)}
+              </TableCell>
+            </TableRow>
+          ))}
+          {logs.length === 0 ? (
+            <TableRow>
+              <TableCell
+                className="text-muted-foreground py-6 text-center"
+                colSpan={columns.length + 3}
+              >
+                No logs found.
+              </TableCell>
+            </TableRow>
+          ) : null}
+        </TableBody>
+      </table>
+    </div>
   );
 }

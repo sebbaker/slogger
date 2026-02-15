@@ -43,7 +43,7 @@ export function parseDate(value: string | null | undefined): string | null {
 export function parseLimit(value: number | string | null | undefined): number {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) {
-    return 100;
+    return 1000;
   }
 
   return Math.min(Math.floor(parsed), 1000);
@@ -63,7 +63,6 @@ export async function queryLogs(
 ): Promise<{ logs: QueryRow[]; total: number }> {
   const sources = normalizeSources(input.sources);
   const search = input.search?.trim() || null;
-  const jsonPath = input.jsonPath?.trim() || null;
   const from = parseDate(input.from);
   const to = parseDate(input.to);
   const limit = parseLimit(input.limit);
@@ -82,11 +81,6 @@ export async function queryLogs(
     where.push(
       `to_tsvector('simple', props) @@ plainto_tsquery('simple', $${params.length})`,
     );
-  }
-
-  if (jsonPath) {
-    params.push(jsonPath);
-    where.push(`jsonb_path_exists(props, $${params.length}::jsonpath)`);
   }
 
   if (from) {
