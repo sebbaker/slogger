@@ -43,10 +43,10 @@ export function parseDate(value: string | null | undefined): string | null {
 export function parseLimit(value: number | string | null | undefined): number {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) {
-    return 1000;
+    return 5000;
   }
 
-  return Math.min(Math.floor(parsed), 1000);
+  return Math.min(Math.floor(parsed), 5000);
 }
 
 export function parseOffset(value: number | string | null | undefined): number {
