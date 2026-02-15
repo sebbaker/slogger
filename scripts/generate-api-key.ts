@@ -45,7 +45,7 @@ function main() {
   });
 
   writeConfigToPath(args.configPath, config);
-  process.stdout.write(rawKey);
+  console.log(rawKey);
 }
 
 main();

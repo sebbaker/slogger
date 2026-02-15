@@ -1,47 +1,116 @@
 "use client";
 
 import { format } from "date-fns";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import type { LogItem } from "@/components/logs-explorer/types";
+
+export type DisplayColumn = {
+  label: string;
+  paths: string[];
+};
 
 type LogsTableProps = {
   logs: LogItem[];
+  columns: DisplayColumn[];
   onSelect: (log: LogItem) => void;
 };
 
-export function LogsTable({ logs, onSelect }: LogsTableProps) {
+function getPathValue(input: unknown, path: string): unknown {
+  const segments = path
+    .split(".")
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+  let current: unknown = input;
+
+  for (const segment of segments) {
+    if (
+      current === null ||
+      current === undefined ||
+      typeof current !== "object"
+    ) {
+      return undefined;
+    }
+
+    current = (current as Record<string, unknown>)[segment];
+  }
+
+  return current;
+}
+
+function getColumnValue(log: LogItem, paths: string[]): string {
+  for (const path of paths) {
+    const value = getPathValue(log.props, path);
+    if (value === undefined || value === null || value === "") {
+      continue;
+    }
+
+    if (typeof value === "string") {
+      return value;
+    }
+
+    return JSON.stringify(value);
+  }
+
+  return "-";
+}
+
+export function LogsTable({ logs, columns, onSelect }: LogsTableProps) {
   return (
-    <div className="flex-1 overflow-auto rounded-md border border-slate-800 bg-slate-900">
-      <table className="w-full text-left text-sm text-slate-200">
-        <thead className="sticky top-0 bg-slate-950 text-xs uppercase tracking-wide text-slate-400">
-          <tr>
-            <th className="px-3 py-2">Time</th>
-            <th className="px-3 py-2">Source</th>
-            <th className="px-3 py-2">Preview</th>
-          </tr>
-        </thead>
-        <tbody>
-          {logs.map((log, index) => (
-            <tr
-              key={`${log.id}-${index}`}
-              className="cursor-pointer border-t border-slate-800 hover:bg-slate-800"
-              onClick={() => onSelect(log)}
-            >
-              <td className="px-3 py-2">{format(new Date(log.time), "yyyy-MM-dd HH:mm:ss")}</td>
-              <td className="px-3 py-2">{log.source}</td>
-              <td className="max-w-xl truncate px-3 py-2 text-slate-300">
-                {JSON.stringify(log.props)}
-              </td>
-            </tr>
+    // <div className="bg-card h-full min-h-0 overflow-auto rounded-lg border">
+    <Table>
+      <TableHeader className="bg-card sticky top-0 z-10 text-xs uppercase tracking-wide">
+        <TableRow>
+          <TableHead className="w-44">Time</TableHead>
+          <TableHead className="w-40">Source</TableHead>
+          {columns.map((column) => (
+            <TableHead key={column.label}>{column.label}</TableHead>
           ))}
-          {logs.length === 0 ? (
-            <tr>
-              <td className="px-3 py-6 text-center text-slate-400" colSpan={3}>
-                No logs found.
-              </td>
-            </tr>
-          ) : null}
-        </tbody>
-      </table>
-    </div>
+          <TableHead className="min-w-96">Full JSON</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {logs.map((log, index) => (
+          <TableRow
+            key={`${log.id}-${index}`}
+            className="cursor-pointer"
+            onClick={() => onSelect(log)}
+          >
+            <TableCell className="text-muted-foreground whitespace-nowrap">
+              {format(new Date(log.time), "yyyy-MM-dd HH:mm:ss")}
+            </TableCell>
+            <TableCell className="whitespace-nowrap">{log.source}</TableCell>
+            {columns.map((column) => (
+              <TableCell
+                key={`${log.id}-${column.label}`}
+                className="text-muted-foreground max-w-80 truncate"
+              >
+                {getColumnValue(log, column.paths)}
+              </TableCell>
+            ))}
+            <TableCell className="text-muted-foreground max-w-xl truncate font-mono text-xs">
+              {JSON.stringify(log.props)}
+            </TableCell>
+          </TableRow>
+        ))}
+        {logs.length === 0 ? (
+          <TableRow>
+            <TableCell
+              className="text-muted-foreground py-6 text-center"
+              colSpan={columns.length + 3}
+            >
+              No logs found.
+            </TableCell>
+          </TableRow>
+        ) : null}
+      </TableBody>
+    </Table>
+    // </div>
   );
 }

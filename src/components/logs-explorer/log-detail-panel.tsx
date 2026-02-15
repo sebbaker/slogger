@@ -1,6 +1,14 @@
 "use client";
 
 import { format } from "date-fns";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import type { LogItem } from "@/components/logs-explorer/types";
 
 type LogDetailPanelProps = {
@@ -9,26 +17,26 @@ type LogDetailPanelProps = {
 };
 
 export function LogDetailPanel({ log, onClose }: LogDetailPanelProps) {
-  if (!log) {
-    return null;
-  }
-
   return (
-    <aside className="fixed top-0 right-0 z-50 h-full w-full max-w-xl border-l border-slate-800 bg-slate-950 p-4 shadow-2xl">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-white">Log Detail</h2>
-        <button className="rounded border border-slate-700 px-3 py-1 text-sm text-slate-200" onClick={onClose} type="button">
-          Close
-        </button>
-      </div>
-      <div className="mb-3 space-y-1 text-sm text-slate-300">
-        <p>Source: {log.source}</p>
-        <p>Time: {format(new Date(log.time), "yyyy-MM-dd HH:mm:ss")}</p>
-        <p>Created: {format(new Date(log.created_at), "yyyy-MM-dd HH:mm:ss")}</p>
-      </div>
-      <pre className="h-[calc(100%-8rem)] overflow-auto rounded border border-slate-800 bg-slate-900 p-3 text-xs text-slate-100">
-        {JSON.stringify(log.props, null, 2)}
-      </pre>
-    </aside>
+    <Dialog open={Boolean(log)} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="h-[85vh] max-w-4xl">
+        {log ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>Log Detail</DialogTitle>
+              <DialogDescription>
+                {log.source} at {format(new Date(log.time), "yyyy-MM-dd HH:mm:ss")}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="text-muted-foreground mb-3 space-y-1 text-sm">
+              <p>Created: {format(new Date(log.created_at), "yyyy-MM-dd HH:mm:ss")}</p>
+            </div>
+            <ScrollArea className="bg-muted/30 h-[calc(85vh-11rem)] rounded-md border p-3">
+              <pre className="text-xs">{JSON.stringify(log.props, null, 2)}</pre>
+            </ScrollArea>
+          </>
+        ) : null}
+      </DialogContent>
+    </Dialog>
   );
 }

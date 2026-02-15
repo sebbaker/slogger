@@ -1,15 +1,22 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+
 type AuthGateProps = {
   onSubmit: (key: string) => void;
 };
 
 export function AuthGate({ onSubmit }: AuthGateProps) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-950 p-6">
-      <div className="w-full max-w-md rounded-xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
-        <h1 className="mb-2 text-2xl font-semibold text-white">Slogger Explorer</h1>
-        <p className="mb-4 text-sm text-slate-300">Enter your API key to query logs.</p>
+    <div className="flex min-h-screen items-center justify-center p-6">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle>Slogger Explorer</CardTitle>
+          <CardDescription>Enter your API key to query logs.</CardDescription>
+        </CardHeader>
+        <CardContent>
         <form
           className="space-y-3"
           onSubmit={(event) => {
@@ -21,21 +28,13 @@ export function AuthGate({ onSubmit }: AuthGateProps) {
             }
           }}
         >
-          <input
-            className="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none ring-cyan-500 focus:ring-2"
-            type="password"
-            name="apiKey"
-            placeholder="sk_live_..."
-            autoComplete="off"
-          />
-          <button
-            className="w-full rounded-md bg-cyan-500 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-400"
-            type="submit"
-          >
+          <Input type="password" name="apiKey" placeholder="sk_live_..." autoComplete="off" />
+          <Button className="w-full" type="submit">
             Continue
-          </button>
+          </Button>
         </form>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

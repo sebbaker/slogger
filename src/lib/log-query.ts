@@ -58,7 +58,9 @@ export function parseOffset(value: number | string | null | undefined): number {
   return Math.floor(parsed);
 }
 
-export async function queryLogs(input: QueryLogsInput): Promise<{ logs: QueryRow[]; total: number }> {
+export async function queryLogs(
+  input: QueryLogsInput,
+): Promise<{ logs: QueryRow[]; total: number }> {
   const sources = normalizeSources(input.sources);
   const search = input.search?.trim() || null;
   const jsonPath = input.jsonPath?.trim() || null;
@@ -78,7 +80,7 @@ export async function queryLogs(input: QueryLogsInput): Promise<{ logs: QueryRow
   if (search) {
     params.push(search);
     where.push(
-      `to_tsvector('simple', search_text) @@ plainto_tsquery('simple', $${params.length})`,
+      `to_tsvector('simple', props) @@ plainto_tsquery('simple', $${params.length})`,
     );
   }
 
@@ -108,7 +110,12 @@ export async function queryLogs(input: QueryLogsInput): Promise<{ logs: QueryRow
     OFFSET $${params.length + 2}
   `;
 
-  const logs = await db.$queryRawUnsafe<QueryRow[]>(dataSql, ...params, limit, offset);
+  const logs = await db.$queryRawUnsafe<QueryRow[]>(
+    dataSql,
+    ...params,
+    limit,
+    offset,
+  );
 
   const countSql = `
     SELECT COUNT(*)::int AS total
@@ -116,7 +123,10 @@ export async function queryLogs(input: QueryLogsInput): Promise<{ logs: QueryRow
     WHERE ${whereClause}
   `;
 
-  const [countResult] = await db.$queryRawUnsafe<Array<{ total: number }>>(countSql, ...params);
+  const [countResult] = await db.$queryRawUnsafe<Array<{ total: number }>>(
+    countSql,
+    ...params,
+  );
 
   return {
     logs,

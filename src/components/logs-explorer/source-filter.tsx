@@ -1,5 +1,8 @@
 "use client";
 
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+
 type SourceFilterProps = {
   availableSources: string[];
   selectedSources: string[];
@@ -11,26 +14,26 @@ export function SourceFilter({ availableSources, selectedSources, onChange }: So
     availableSources.length > 0 && selectedSources.length === availableSources.length;
 
   return (
-    <div className="rounded-md border border-slate-800 bg-slate-900 p-3">
-      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-400">Sources</p>
-      <label className="mb-2 flex items-center gap-2 text-sm text-slate-200">
-        <input
-          type="checkbox"
+    <div className="bg-card rounded-md border p-3">
+      <p className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">Sources</p>
+      <div className="mb-2 flex items-center gap-2">
+        <Checkbox
+          id="source-filter-all"
           checked={allSelected}
-          onChange={(event) => onChange(event.target.checked ? availableSources : [])}
+          onCheckedChange={(checked) => onChange(checked ? availableSources : [])}
         />
-        All
-      </label>
+        <Label htmlFor="source-filter-all">All</Label>
+      </div>
       <div className="grid grid-cols-2 gap-1">
         {availableSources.map((source) => {
           const checked = selectedSources.includes(source);
           return (
-            <label key={source} className="flex items-center gap-2 text-sm text-slate-200">
-              <input
-                type="checkbox"
+            <div key={source} className="flex items-center gap-2">
+              <Checkbox
+                id={`source-filter-${source}`}
                 checked={checked}
-                onChange={(event) => {
-                  if (event.target.checked) {
+                onCheckedChange={(next) => {
+                  if (next) {
                     onChange([...selectedSources, source]);
                     return;
                   }
@@ -38,8 +41,8 @@ export function SourceFilter({ availableSources, selectedSources, onChange }: So
                   onChange(selectedSources.filter((item) => item !== source));
                 }}
               />
-              {source}
-            </label>
+              <Label htmlFor={`source-filter-${source}`}>{source}</Label>
+            </div>
           );
         })}
       </div>
