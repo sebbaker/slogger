@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { maxLimit } from "../shared/max-logs-query";
 
 export type QueryRow = {
   id: string;
@@ -43,10 +44,10 @@ export function parseDate(value: string | null | undefined): string | null {
 export function parseLimit(value: number | string | null | undefined): number {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) {
-    return 5000;
+    return maxLimit;
   }
 
-  return Math.min(Math.floor(parsed), 5000);
+  return Math.min(Math.floor(parsed), maxLimit);
 }
 
 export function parseOffset(value: number | string | null | undefined): number {

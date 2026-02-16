@@ -5,6 +5,7 @@ import {
   queryLogs,
   querySources,
 } from "@/lib/log-query";
+import { maxLimit } from "@/shared/max-logs-query";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { z } from "zod";
@@ -42,10 +43,10 @@ function createServer() {
         "Search logs by source, full-text, JSONPath, time range, and pagination.",
       inputSchema: {
         sources: z.array(z.string()).optional(),
-        search: z.string().optional(),
-        from: z.string().optional(),
-        to: z.string().optional(),
-        limit: z.number().int().positive().max(1000).optional(),
+        search: z.string().optional().describe("Simple plain text match"),
+        from: z.string().optional().describe("from iso time"),
+        to: z.string().optional().describe("to iso time"),
+        limit: z.number().int().positive().max(maxLimit).optional(),
         offset: z.number().int().nonnegative().optional(),
       },
     },
@@ -110,7 +111,10 @@ async function normalizeAcceptHeaders(request: Request): Promise<Request> {
 
   if (request.method === "GET") {
     if (!accept.includes("text/event-stream")) {
-      headers.set("accept", accept ? `${accept}, text/event-stream` : "text/event-stream");
+      headers.set(
+        "accept",
+        accept ? `${accept}, text/event-stream` : "text/event-stream",
+      );
       return new Request(request.url, { method: "GET", headers });
     }
     return request;

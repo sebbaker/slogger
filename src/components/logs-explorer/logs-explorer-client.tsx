@@ -40,6 +40,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { maxLimit } from "@/shared/max-logs-query";
 import {
   endOfDay,
   format,
@@ -616,7 +617,7 @@ export function LogsExplorerClient() {
               <Label htmlFor="limit">Limit</Label>
               <Input
                 id="limit"
-                max={1000}
+                max={maxLimit}
                 min={1}
                 type="number"
                 value={formFilters.limit}
@@ -625,7 +626,7 @@ export function LogsExplorerClient() {
                   setFormFilters((prev) => ({
                     ...prev,
                     limit: Math.min(
-                      1000,
+                      maxLimit,
                       Math.max(1, Number(event.target.value) || 100),
                     ),
                   }))
