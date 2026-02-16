@@ -21,6 +21,8 @@ type LogsTableProps = {
   onSelect: (log: LogItem) => void;
 };
 
+const RECENT_LOG_WINDOW_MS = 5 * 60 * 1000;
+
 function getPathValue(input: unknown, path: string): unknown {
   const segments = path
     .split(".")
@@ -60,6 +62,16 @@ function getColumnValue(log: LogItem, paths: string[]): string {
   return "-";
 }
 
+function isWithinRecentWindow(timestamp: string): boolean {
+  const time = new Date(timestamp).getTime();
+  if (Number.isNaN(time)) {
+    return false;
+  }
+
+  const elapsed = Date.now() - time;
+  return elapsed >= 0 && elapsed <= RECENT_LOG_WINDOW_MS;
+}
+
 export function LogsTable({ logs, columns, onSelect }: LogsTableProps) {
   return (
     <div className="absolute inset-0 overflow-auto overscroll-none">
@@ -93,7 +105,13 @@ export function LogsTable({ logs, columns, onSelect }: LogsTableProps) {
               className="cursor-pointer"
               onClick={() => onSelect(log)}
             >
-              <TableCell className="text-muted-foreground whitespace-nowrap">
+              <TableCell
+                className={`whitespace-nowrap ${
+                  isWithinRecentWindow(log.time)
+                    ? "font-bold text-black"
+                    : "text-muted-foreground"
+                }`}
+              >
                 {format(new Date(log.time), "yyyy-MM-dd HH:mm:ss")}
               </TableCell>
 
